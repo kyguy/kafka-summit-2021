@@ -1,0 +1,22 @@
++----------+
+|          |               *  *
+|  Topic   |            *        *
+| Resource | <------+ *   Topic   *
+|          | +------> *  Operator *---+     Kafka Cluster
+|          |            *        *    |
++----------+               *  *       |         *  *
+                            ^         |      *        *
+                            |         +-->  *  Kafka   *
++----------+                |               *   Pod    *
+|          |               *  *              *        *
+|  Kafka   |            *        *              *  *
+| Resource | <------+  * Cluster  * ----->
+|          | +------>  * Operator *             *  *
+|          |            *        *           *        *
++----------+               *  *             * Zookeeper*
+                                            *   Pod    *
+                                             *        *
+                                                *  *
+
+Kubernetes Land
+

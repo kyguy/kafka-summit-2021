@@ -1,0 +1,18 @@
+                                                    *  *         *  *          *  * 
+    +----------+                                 *        *   *        *    *        * 
+  +----------+ |                                *  Kafka   * *  Kafka   *  *  Kafka   * 
++----------+ | |               *  *             *   Pod    * *   Pod    *  *   Pod    * 
+|          | | |            *       *            *        *   *        *    *        * 
+|  Custom  | | | <------+  * Strimzi  * ----->      *  *         *  *          *  * 
+| Resource | | | +------>  * Operator * 
+|          | |-+            *        *              *  *         *  *          *  * 
+|          |-+                *  *               *        *   *        *    *        * 
++----------+                                    * Zookeeper* * Zookeeper*  * Zookeeper* 
+                                                *   Pod    * *   Pod    *  *   Pod    * 
+                                                 *        *   *        *    *        * 
+                                                    *  *         *  *          *  * 
+ 
+                                                             Kafka Cluster 
+ 
+ 
+Kubernetes Land 

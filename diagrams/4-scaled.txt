@@ -1,0 +1,16 @@
+                                                        Kafka Cluster
+
+                                                *  *         *  *          *  *
+                                             *        *   *        *    *        *
++----------+                                *  Kafka   * *  Kafka   *  *  Kafka   *
+|          |               *  *             *   Pod    * *   Pod    *  *   Pod    *
+|  Kafka   |            *        *            *        *   *        *    *        *
+| Resource | <------+  * Cluster  * ----->      *  *         *  *          *  *
+|          | +------>  * Operator *
+|          |            *        *              *  *         *  *          *  *
++----------+               *  *              *        *   *        *    *        *
+                                            * Zookeeper* * Zookeeper*  * Zookeeper*
+                                            *   Pod    * *   Pod    *  *   Pod    *
+                                             *        *   *        *    *        *
+                                                *  *         *  *          *  *
+Kubernetes Land

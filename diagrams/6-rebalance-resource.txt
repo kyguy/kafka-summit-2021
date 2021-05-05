@@ -1,0 +1,26 @@
+                           *  *
+                        *        *
+                       * Cruise   * -------------+------------+------------+
+                       * Control  *              |            |            |
+                        *        *               v            v            v
+                          *  *
+                            ^                   *  *         *  *          *  *
+                            |                *        *   *        *    *        *
++----------+                |               *  Kafka   * *  Kafka   *  *  Kafka   *
+|          |               *  *             *   Pod    * *   Pod    *  *   Pod    *
+|  Kafka   |            *        *            *        *   *        *    *        *
+| Resource | <------+  * Cluster  * ----->      *  *         *  *          *  *
+|          | +------>  * Operator *
+|          |            *        *              *  *         *  *          *  *
++----------+               *  *              *        *   *        *    *        *
+                            | ^             * Zookeeper* * Zookeeper*  * Zookeeper*
++----------+                | |             *   Pod    * *   Pod    *  *   Pod    *
+|          |                | |              *        *   *        *    *        *
+|Rebalance | <--------------+ |                 *  *         *  *          *  *
+| Resource | +----------------+
+|          |                                             Kafka Cluster
+|          |
++----------+
+
+
+Kubernetes Land
