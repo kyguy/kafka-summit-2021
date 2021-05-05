@@ -242,7 +242,7 @@ As we can see in the description in the `KafkaTopic` resource, we describe a Kaf
 - Contains 3 replicas per partition
 - Has the following Apache Kafka topic configurations
 
-**Note**: The 3 replicas are irrelevant right now since we only have one broker but will be important for when we scale the cluster later.
+*Note*: The 3 replicas are irrelevant right now since we only have one broker but will be important for when we scale the cluster later.
 
 The Kubernetes CLI makes it convenient for interacting with topics whether you use it to view your topics
 
@@ -262,7 +262,7 @@ Now that we have a KafkaTopic, let's write and read messages to it!
 
 Let's create a basic Kafka producer and consumer to write and read messages from our single node cluster:
 
-- (Split window pane) -
+(Split window pane)
 
 LEFT
 ```
@@ -385,7 +385,7 @@ Kubernetes Land                                          Kafka Cluster
 We can see Cruise Control deployed here
 ```
 kubectl get pods
-``
+```
 
 Now that Cruise Control has been deployed, we need a way of interacting with the Cruise Control.
 Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI.
@@ -411,10 +411,13 @@ We can see it is pretty simple, especially since we are relying on the default c
 We could have specified a custom `spec.goals` list to optimize how the cluster is balanced.
 For example, we could have added a single value `spec.goals` list with
 - DiskCapacityGoal
-which would cause Cruise Control to balance the cluster based on broker disk capacity, ignoring other factors like
+
+which would cause Cruise Control to balance the cluster based on broker disk capacity, ignoring other factors like:
+
 - CPU load
 - Network load
 - etc
+
 The defult settings cover all of these factors
 
 ```
@@ -463,7 +466,7 @@ kubectl annotate kafkarebalance my-rebalance strimzi.io/rebalance=approve
 
 Now Cruise Control will execute a partition rebalance amongst the brokers
 
-Once complete, we can look
+Once complete, we can look and see the partitions and replicas spread amongst all of the brokers.
 ```
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server my-cluster-kafka-bootstrap:9092
 ```
