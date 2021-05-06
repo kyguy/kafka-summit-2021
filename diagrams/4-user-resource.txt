@@ -1,6 +1,6 @@
 +----------+
 |          |               *  *
-|  Topic   |            *        *
+|   User   |            *        *
 | Resource | <------+ *   Entity  *
 |          | +------> *  Operator *---+     Kafka Cluster
 |          |            *        *    |
