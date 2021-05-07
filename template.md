@@ -181,11 +181,9 @@ spec:
 ```
 
 As we can see in the description in the `KafkaTopic` resource, we describe a Kafka Topic that
-- Contains 1 partition
-- Contains 3 replicas per partition
+- Contains 3 partitions
+- Contains 1 replicas per partition
 - Has the following Apache Kafka topic configurations
-
-*Note*: The 3 replicas are irrelevant right now since we only have one broker but will be important for when we scale the cluster later.
 
 The Kubernetes CLI makes it convenient for interacting with topics whether you use it to view your topics
 
