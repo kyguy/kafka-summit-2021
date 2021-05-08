@@ -1,8 +1,8 @@
 +----------+
 |          |               *  *
 |  Topic   |            *        *
-| Resource | <------+ *   Entity  *
-|          | +------> *  Operator *---+     Kafka Cluster
+| Resource | <------+  *  Entity  *
+|          | +------>  * Operator * --+     Kafka Cluster
 |          |            *        *    |
 +----------+               *  *       |         *  *
                             ^         |      *        *

@@ -6,18 +6,22 @@ Demo for using Strimzi to manage a Kafka cluster on Kubernetes.
 - Kubernetes cluster
 - Namespace context set to `myproject`
 
-# Demo
+## Timing
+- Strimzi Basics ~15mins 
+- Cruise Control ~5mins
+
+# Demo: Strimzi Basics
 Today we are going to demonstrate the Strimzi Kafka Operator for running Kafka on Kubernetes. 
 ```
                                                     *  *         *  *          *  * 
     +----------+                                 *        *   *        *    *        * 
   +----------+ |                                *  Kafka   * *  Kafka   *  *  Kafka   * 
 +----------+ | |               *  *             *   Pod    * *   Pod    *  *   Pod    * 
-|          | | |            *       *            *        *   *        *    *        * 
+|          | | |            *        *           *        *   *        *    *        * 
 |  Custom  | | | <------+  * Strimzi  * ----->      *  *         *  *          *  * 
 | Resource | | | +------>  * Operator * 
 |          | |-+            *        *              *  *         *  *          *  * 
-|          |-+                *  *               *        *   *        *    *        * 
+|          |-+                 *  *              *        *   *        *    *        * 
 +----------+                                    * Zookeeper* * Zookeeper*  * Zookeeper* 
                                                 *   Pod    * *   Pod    *  *   Pod    * 
                                                  *        *   *        *    *        * 
@@ -31,7 +35,6 @@ Kubernetes Land
 In this demo, we will cover a few things like:
 - How to install the Strimzi Kafka Operator.
 - How to deploy and manage a Kafka cluster.
-- Advanced integration features like Cruise Control and Kafka Connect.
 
 ## Cluster Deployment
 
@@ -41,62 +44,39 @@ Let's start by deploying the Strimzi Cluster Operator to Kubernetes.
 curl -L strimzi.io/install/latest | kubectl create -f -
 ```
 
-This command will download a Strimzi installation file which defines Strimzi using Kubernetes objects:
+This command will download a Strimzi installation file which defines Strimzi using Kubernetes objects like:
 
 - CustomResourceDefinitions
-- ClusteRoles
+- ClusterRoles
 - ConfigMaps
 - Deployments
+- ...
 
-Then these objects will then be created in Kubernetes.
+and then will create these objects in Kubernetes.
 
-As we can see here, our the deployment for the Strimzi Cluster Operator was created.
-
-```
-kubectl get pods
-```
-
-We can also see the Strimzi CustomResourceDefinitions that were created as well.
+We can see the CustomResourceDefinitions installed here
 
 ```
 kubectl get crds
 ```
 
-These CustomResourceDefinitions will allow us to create Strimzi objects like:
-- `Kafka` objects
-- `KafkaTopic` objects
-- `KafkeUser` objects
-- etc
+These will allow us to create Strimzi objects like:
+- `Kafka` objects for creating Kafka clusters
+- `KafkaTopic` objects for creating Kafka topics
+- `KafkaUser` objects for creating Kafka users
+-  ...
 
-Now we can deploy a Kafka cluster like this: 
+Let's check to see if our Strimzi Cluster Operator deployment is complete.
 ```
-kubectl apply -f examples/kafka-persistent.yaml
-```
-
-```
-                                            Kafka Cluster
-
-                                                *  *
-                                             *        *
-+----------+                                *  Kafka   *
-|          |               *  *             *   Pod    *
-|  Kafka   |            *        *           *        *
-| Resource | <------+  * Cluster  * ----->      *  *
-|          | +------>  * Operator *
-|          |            *        *              *  *
-+----------+               *  *              *        *
-                                            * Zookeeper*
-                                            *   Pod    *
-                                             *        *
-                                                *  *
-Kubernetes Land
+kubectl get pods -w
 ```
 
-Here we are passing Kubernetes a description of a `Kafka` custom resource object. 
-The Strimzi Cluster Operator will then read the description of the newly created `Kafka` resource object and create a Kafka cluster based on that description. 
-We can think of the `Kafka` resource as a blueprint and the operator as a builder.
+Now that the Cluster Operator is ready, we can deploy a Kafka cluster by creating a `Kafka` resource in Kuberentes like this: 
+```
+kubectl apply -f examples/kafka-persistent-single.yaml
+```
 
-Let's take a closer look at the description of the Kafka resource we just passed to Kubernetes 
+Let's take a closer looks at the `Kafka` resource description 
 ```
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
@@ -126,20 +106,46 @@ spec:
       volumes:
       - id: 0
         type: persistent-claim
-        size: 10Gi
+        size: 1Gi
         deleteClaim: false
   zookeeper:
     replicas: 1
     storage:
       type: persistent-claim
-      size: 10Gi
+      size: 1Gi
       deleteClaim: false
 ```
 
 We define a Kafka cluster that 
+- Has the name "my-cluster"
 - Runs Apache Kafka broker version 2.7.0
-- Has one broker pod replica (or instance)
-- Has the following broker configuration.
+- Has one broker instance
+- Has one zookeeper instance
+- Has the following Apache Kafka broker configuration.
+
+```
+                                            Kafka Cluster
+
+                                                *  *
+                                             *        *
++----------+                                *  Kafka   *
+|          |               *  *             *   Pod    *
+|  Kafka   |            *        *           *        *
+| Resource | <------+  * Cluster  * ----->      *  *
+|          | +------>  * Operator *
+|          |            *        *              *  *
++----------+               *  *              *        *
+                                            * Zookeeper*
+                                            *   Pod    *
+                                             *        *
+                                                *  *
+Kubernetes Land
+```
+
+Kubernetes will use this description to create a `Kafka` resource object. 
+The Strimzi Cluster Operator will then create a Kafka cluster based on that description of that `Kafka` resource.
+ 
+We can think of the `Kafka` resource as a blueprint and the operator as a builder.
 
 Here we can see the Cluster Operator has created a single-node Kafka cluster:
 ```
@@ -152,7 +158,7 @@ With this cluster, there are a few things Strimzi gives us for free out of the b
 
 ## Managing the Cluster
 
-Just as we can manage Kafka clusters using the Strimzi _Cluster_ Operator, we can manage other Kafka components using the Strimzi _Entity_ Operator. Namely
+Just as we can manage Kafka clusters using the Strimzi _Cluster_ Operator, we can manage other Kafka components using the Strimzi _Entity_ Operator. Components like:
 - Kafka topics
 - Kafka users
 
@@ -210,32 +216,6 @@ Here we pass Kubernetes a description of our desired `KafkaTopic` resource
 kubectl apply -f examples/kafka-topic.yaml
 ```
 
-```
-+----------+
-|          |               *  *
-|  Topic   |            *        *
-| Resource | <------+ *   Entity  *
-|          | +------> *  Operator *---+     Kafka Cluster
-|          |            *        *    |
-+----------+               *  *       |         *  *
-                            ^         |      *        *
-                            |         +-->  *  Kafka   *
-+----------+                |               *   Pod    *
-|          |               *  *              *        *
-|  Kafka   |            *        *              *  *
-| Resource | <------+  * Cluster  * ----->
-|          | +------>  * Operator *             *  *
-|          |            *        *           *        *
-+----------+               *  *             * Zookeeper*
-                                            *   Pod    *
-                                             *        *
-                                                *  *
-
-Kubernetes Land
-```
-
-Just like our `Kafka` resource, our `KafkaTopic` resource is a custom Strimzi resource that we describe in a yaml and pass to our Operator to turn that description into reality.
-
 Let's look at the `KafkaTopic` resource we just passed our Operator
 ```
 apiVersion: kafka.strimzi.io/v1beta2
@@ -257,13 +237,39 @@ As we can see in the description in the `KafkaTopic` resource, we describe a Kaf
 - Contains 1 replicas per partition
 - Has the following Apache Kafka topic configurations
 
-The Kubernetes CLI makes it convenient for interacting with topics whether you use it to view your topics
+```
++----------+
+|          |               *  *
+|  Topic   |            *        *
+| Resource | <------+  *  Entity  *
+|          | +------>  * Operator * --+     Kafka Cluster
+|          |            *        *    |
++----------+               *  *       |         *  *
+                            ^         |      *        *
+                            |         +-->  *  Kafka   *
++----------+                |               *   Pod    *
+|          |               *  *              *        *
+|  Kafka   |            *        *              *  *
+| Resource | <------+  * Cluster  * ----->
+|          | +------>  * Operator *             *  *
+|          |            *        *           *        *
++----------+               *  *             * Zookeeper*
+                                            *   Pod    *
+                                             *        *
+                                                *  *
 
+Kubernetes Land
+```
+
+Just like our `Kafka` resource, our `KafkaTopic` resource will used as a model by the Operator to create the object which it represents, a Kafka topic.
+
+We can also us the Kubernetes CLI to interact with the resources.
+For example to view our Kafka topics we can run:
 ```
 kubectl get KafkaTopic
 ```
 
-or update them:
+To update our Kafka topics we can run:
 
 ```
 kubectl edit KafkaTopic my-topic
@@ -273,7 +279,7 @@ kubectl edit KafkaTopic my-topic
 
 Let's now create a Kafka user that can use this topic.
 
-With the Entity Operator already running, we can pass it a description of a `KafkaUser` resource.
+Since the Entity Operator is already running, all we need to do is pass a description of a `KafkaUser` resource to Kubernetes:
 
 ```
 kubectl apply -f examples/kafka-user.yaml
@@ -333,9 +339,9 @@ spec:
         operation: Describe
         host: "*"
 ```
-Here in our KafkaUser resource, we declare a few things:
-- TLS client authentication
-- Access Control Lists (ACLs)
+Here in our KafkaUser resource, we focus on two things:
+- **Authentication**:  So our Kafka user will be recognized by the Kafka cluster via TLS client authentication.
+- **Authorization**: So our Kafka user will have privledges via Access Control Lists (ACLs) for reading and writing to our topic.
 
 ```
 +----------+
@@ -361,6 +367,8 @@ Here in our KafkaUser resource, we declare a few things:
 Kubernetes Land
 ```
 
+Our Operator will now create a Kafka user based on that description
+
 ```
 kubectl get KafkaUsers
 ```
@@ -369,10 +377,10 @@ The User Operator has now create an authenticated Kafka user that is authorized 
 
 ## Reading and writing messages to the cluster
 
-Now that we have our Kafke topic and Kafka user set up we can start reading and writing messages to our Kafka cluster:
+Now that we have our Kafka topic and Kafka user set up we can start reading and writing messages to our Kafka cluster:
 
 Let's deploy some simple producer and consumer apps.
-LEFT
+
 ```
 kubectl apply -f examples/producer-consumer-deployment.yaml
 ```
@@ -429,9 +437,7 @@ spec:
 
 As we can see:
 - We point our clients to use the secure bootstrap address of our cluster on port 9093 which only allows authenticated traffic.
-- We point our clients to use the `my-user` secret created by the User Operator to tie the clients to that Kafka user. 
-
-**Note** No other client will be able to read or write to our topic using the secure Kafka port. We do expose the cluster to unauthenticated traffic on port 9092, but we could have easily restricted it.
+- We point our clients to use the `my-user` secret created by the User Operator which tie the clients to our Kafka user. 
 
 Let's look at the messages moving through our Kafka broker
 
@@ -448,6 +454,55 @@ kubectl logs java-kafka-consumer -f
 ```
 
 We can see messaged being written to our Kafka broker on the left and read from the Kafka broker on the right.
+
+**NOTE** No other client will be able to read or write to our topic using the secure Kafka port without being tied to our Kafka user
+
+So if we were to deploy a userless Kafka consumer
+
+```
+kubectl apply -f unknown-kafka-consumer.yaml
+```
+Like this:
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: unknown-kafka-consumer
+  name: unknown-kafka-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unknown-kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: unknown-kafka-consumer
+    spec:
+      containers:
+      - name: unknown-kafka-consumer
+        image: quay.io/strimzi-examples/java-kafka-consumer:latest
+        env:
+          # Notice how there are no secrets here linking our consumer with our Kafka user
+          - name: BOOTSTRAP_SERVERS
+            value: my-cluster-kafka-bootstrap:9093
+          - name: TOPIC
+            value: my-topic
+          - name: GROUP_ID
+            value: java-kafka-consumer
+          - name: LOG_LEVEL
+            value: "INFO"
+          - name: MESSAGE_COUNT
+            value: "1000000"
+```
+we see that it will not be able to read any messages
+
+```
+kubectl logs unknown-kafka-consumer -f
+```
+
+# Demo: Cruise Control
 
 ## Scaling
 
