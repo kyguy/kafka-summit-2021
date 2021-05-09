@@ -1,14 +1,14 @@
                            *  *
                         *        *
-                       * Cruise   *
-                       * Control  *
+                       *  Cruise  *
+                       *  Control *
                         *        *
                           *  *
                             ^                   *  *         *  *          *  *
                             |                *        *   *        *    *        *
 +----------+                |               *  Kafka   * *  Kafka   *  *  Kafka   *
 |          |               *  *             *   Pod    * *   Pod    *  *   Pod    *
-|  Kafka   |           *        *           *        *   *        *    *        *
+|  Kafka   |            *        *           *        *   *        *    *        *
 | Resource | <------+  * Cluster  * ----->      *  *         *  *          *  *
 |          | +------>  * Operator *
 |          |            *        *              *  *         *  *          *  *

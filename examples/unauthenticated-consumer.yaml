@@ -2,20 +2,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: unknown-kafka-consumer
-  name: unknown-kafka-consumer
+    app: unauthenticated-kafka-consumer
+  name: unauthenticated-kafka-consumer
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: unknown-kafka-consumer
+      app: unauthenticated-kafka-consumer
   template:
     metadata:
       labels:
-        app: unknown-kafka-consumer
+        app: unauthenticated-kafka-consumer
     spec:
       containers:
-      - name: unknown-kafka-consumer
+      - name: unauthenticated-kafka-consumer
         image: quay.io/strimzi-examples/java-kafka-consumer:latest
         env:
           # Notice how there are no secrets here linking our consumer with our Kafka user

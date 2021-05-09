@@ -7,11 +7,13 @@ Demo for using Strimzi to manage a Kafka cluster on Kubernetes.
 - Namespace context set to `myproject`
 
 ## Timing
-- Strimzi Basics ~15mins 
+- Strimzi Basics ~11mins 
 - Cruise Control ~5mins
 
 # Demo: Strimzi Basics
+
 Today we are going to demonstrate the Strimzi Kafka Operator for running Kafka on Kubernetes. 
+
 ```
 0-overview.txt
 ```
@@ -56,7 +58,7 @@ kubectl get pods -w
 
 Now that the Cluster Operator is ready, we can deploy a Kafka cluster by creating a `Kafka` resource in Kuberentes like this: 
 ```
-kubectl apply -f examples/kafka-persistent-single.yaml
+kubectl apply -f examples/kafka.yaml
 ```
 
 Let's take a closer looks at the `Kafka` resource description 
@@ -268,8 +270,8 @@ spec:
         host: "*"
 ```
 Here in our KafkaUser resource, we focus on two things:
-- **Authentication**:  So our Kafka user will be recognized by the Kafka cluster via TLS client authentication.
-- **Authorization**: So our Kafka user will have privledges via Access Control Lists (ACLs) for reading and writing to our topic.
+- **Authentication**:  So our Kafka user will be recognized by the Kafka cluster, here we use TLS client authentication.
+- **Authorization**: So our Kafka user will have privledges to interact with topics, here we defined Access Control Lists (ACLs) for reading and writing to our topic.
 
 ```
 4-user-resource.txt
@@ -290,7 +292,7 @@ Now that we have our Kafka topic and Kafka user set up we can start reading and 
 Let's deploy some simple producer and consumer apps.
 
 ```
-kubectl apply -f examples/producer-consumer-deployment.yaml
+kubectl apply -f examples/producer-consumer-apps.yaml
 ```
 
 Looking at the deployment 
@@ -363,12 +365,12 @@ kubectl logs java-kafka-consumer -f
 
 We can see messaged being written to our Kafka broker on the left and read from the Kafka broker on the right.
 
-**NOTE** No other client will be able to read or write to our topic using the secure Kafka port without being tied to our Kafka user
+**NOTE** No other client will be able to read or write to our topic using the secure bootstrap address without being tied to our Kafka user
 
 So if we were to deploy a userless Kafka consumer
 
 ```
-kubectl apply -f unknown-kafka-consumer.yaml
+kubectl apply -f examples/unauthenticated-consumer.yaml
 ```
 Like this:
 ```
@@ -410,27 +412,49 @@ we see that it will not be able to read any messages
 kubectl logs unknown-kafka-consumer -f
 ```
 
+That covers the Strimzi basics, as you have seen, using Strimzi Operators and Custom Resources we can easily deploy and manage:
+
+- Kafka clusters
+- Kafka topics
+- Kafka users
+- ...
+
+in Kubernetes. 
+
 # Demo: Cruise Control
+
+In this demo, we will show how to use Strimz to balance your Kafka cluster using Cruise Control integration.
+
+```
+7-rebalance-resource.txt
+```
 
 ## Scaling
 
-This is all well and good but as you all know, all of our topic's partitions are piled up on one broker:
-
 ```
-kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server localhost:9092 --topic my-topic
+1-single-broker-cluster.txt
 ```
 
-It's the same story for all of our internal topics.
+So far, all of our previous demos have depended on a single Kafka broker:
+
+This raises concerns with:
+- performance
+- fault tolerance
+
+We can see all of our topics' partitions are piled up on one broker here:
 
 ```
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server localhost:9092
 ```
 
-Our cluster can't reach it's full potential by having all of its partitions on one broker. 
+It would be a tragedy if were:
 
-Scale our cluster by adding more Kafka brokers to our cluster. 
+- Not able to read and write our messages as fast as we needed too
+- Or lose any of our precious "Hello World" messages.
 
-Let's scale our cluster to 3 Kafka brokers
+Let's scale our cluster by adding more Kafka brokers to our cluster. 
+
+We can do this by updating our `Kafka` resource like this:
 ```
 kind: Kafka
 metadata:
@@ -447,7 +471,7 @@ spec:
 ```
 Just like every other change to our cluster, all we need to do is update the description of our `kafka` resource and the Cluster Operator will do the rest.
 
-Although we have 3 brokers now, all of our partitions are still piled up on broker 0!
+However, this does not save us from our problems, although we nowhave 3 brokers now, all of our partitions are still piled up on broker 0!
 
 ```
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server my-cluster-kafka-bootstrap:9092
@@ -457,12 +481,11 @@ We need to redistribute these partitions to balance our cluster out.
 
 ## Cluster balancing
 
-To balance our partitions accross our brokers we can use Cruise Control, an opensource project for balancing workloads along Kafka brokers.
+To balance our partitions accross our brokers we can use Cruise Control, an opensource project for balancing workloads across Kafka brokers.
 
 Strimzi's Cruise Control integration makes it easy to use Cruise Control in Kubernetes.
 
-We can deploy Cruise Control in a similar fashion to how we deployed the Entity Operator, through the `kafka` custom resource:
-
+We can deploy Cruise Control in a similar fashion to how we deployed other components like the Entity Operator, through the `kafka` custom resource:
 ```
 kind: Kafka
 metadata:
@@ -473,7 +496,9 @@ spec:
   ...
   cruiseControl: {}
 ```
+
 The Cluster Operator will notice these changes in the `Kafka` resource and deploy Cruise Control alongside our Kafka cluster.
+
 ```
 6-cruise-control.txt
 ```
@@ -484,12 +509,14 @@ kubectl get pods
 ```
 
 Now that Cruise Control has been deployed, we need a way of interacting with the Cruise Control.
+
 Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI.
 
 First we must create a `KafkaRebalance` resource like this:
 ```
 kubectl apply -f examples/kafka-rebalance.yaml
 ```
+
 This will serve as our medium to Cruise Control for preforming a partition rebalance.
 
 Taking a closer look at the `KafkaRebalance` resource:
@@ -503,6 +530,7 @@ metadata:
 # no goals specified, using the default goals from the Cruise Control configuration
 spec: {}
 ```
+
 We can see it is pretty simple, especially since we are relying on the default configurations.
 We could have specified a custom `spec.goals` list to optimize how the cluster is balanced.
 For example, we could have added a single value `spec.goals` list with
