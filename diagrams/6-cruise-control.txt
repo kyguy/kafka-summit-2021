@@ -3,7 +3,7 @@
                        *  Cruise  *
                        *  Control *
                         *        *
-                          *  *
+                           *  *
                             ^                   *  *         *  *          *  *
                             |                *        *   *        *    *        *
 +----------+                |               *  Kafka   * *  Kafka   *  *  Kafka   *

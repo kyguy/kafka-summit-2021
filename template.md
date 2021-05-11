@@ -423,7 +423,7 @@ in Kubernetes.
 
 # Demo: Cruise Control
 
-In this demo, we will show how to use Strimz to balance your Kafka cluster using Cruise Control integration.
+In this demo, we will show how to balance your Kafka cluster using Strimzi Cruise Control integration.
 
 ```
 7-rebalance-resource.txt
@@ -447,12 +447,7 @@ We can see all of our topics' partitions are piled up on one broker here:
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server localhost:9092
 ```
 
-It would be a tragedy if were:
-
-- Not able to read and write our messages as fast as we needed too
-- Or lose any of our precious "Hello World" messages.
-
-Let's scale our cluster by adding more Kafka brokers to our cluster. 
+Let's scale our cluster by adding more Kafka brokers. 
 
 We can do this by updating our `Kafka` resource like this:
 ```
@@ -471,7 +466,9 @@ spec:
 ```
 Just like every other change to our cluster, all we need to do is update the description of our `kafka` resource and the Cluster Operator will do the rest.
 
-However, this does not save us from our problems, although we nowhave 3 brokers now, all of our partitions are still piled up on broker 0!
+**WAIT** Let's wait for the cluster to be scaled.
+
+We can see that our cluster now has three brokers, but all of our partitions are still piled up on broker 0!
 
 ```
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server my-cluster-kafka-bootstrap:9092
@@ -481,11 +478,9 @@ We need to redistribute these partitions to balance our cluster out.
 
 ## Cluster balancing
 
-To balance our partitions accross our brokers we can use Cruise Control, an opensource project for balancing workloads across Kafka brokers.
+To balance our partitions across our brokers we can use Cruise Control, an opensource project for balancing workloads across Kafka brokers.
 
-Strimzi's Cruise Control integration makes it easy to use Cruise Control in Kubernetes.
-
-We can deploy Cruise Control in a similar fashion to how we deployed other components like the Entity Operator, through the `kafka` custom resource:
+We can deploy Cruise Control in a similar fashion to how we deployed other components like the Entity Operator, through the `Kafka` custom resource:
 ```
 kind: Kafka
 metadata:
@@ -497,29 +492,30 @@ spec:
   cruiseControl: {}
 ```
 
-The Cluster Operator will notice these changes in the `Kafka` resource and deploy Cruise Control alongside our Kafka cluster.
-
 ```
 6-cruise-control.txt
 ```
+
+The Cluster Operator will notice these changes in the `Kafka` resource and deploy Cruise Control alongside our Kafka cluster.
+
+**WAIT** Let's wait for Cruise Control to be deployed.
 
 We can see Cruise Control deployed here
 ```
 kubectl get pods
 ```
 
-Now that Cruise Control has been deployed, we need a way of interacting with the Cruise Control.
+Now we need a way of interacting with the Cruise Control.
 
-Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI.
+Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI, through `KafkaRebalance` resources.
 
-First we must create a `KafkaRebalance` resource like this:
+We can create a `KafkaRebalance` resource like this:
 ```
 kubectl apply -f examples/kafka-rebalance.yaml
 ```
-
 This will serve as our medium to Cruise Control for preforming a partition rebalance.
 
-Taking a closer look at the `KafkaRebalance` resource:
+Let's take a closer look at the `KafkaRebalance` resource:
 ```
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaRebalance
@@ -527,37 +523,48 @@ metadata:
   name: my-rebalance
   labels:
     strimzi.io/cluster: my-cluster
-# no goals specified, using the default goals from the Cruise Control configuration
-spec: {}
+spec:
+  goals:
+    - RackAwareGoal
+    - ReplicaCapacityGoal
+    - DiskCapacityGoal
+    - NetworkInboundCapacityGoal
+    - NetworkOutboundCapacityGoal
+    - CpuCapacityGoal
+    - ReplicaDistributionGoal
+    - DiskUsageDistributionGoal
+    - NetworkInboundUsageDistributionGoal
+    - NetworkOutboundUsageDistributionGoal
+    - TopicReplicaDistributionGoal
+    - LeaderReplicaDistributionGoal
+    - LeaderBytesInDistributionGoal    
 ```
 
-We can see it is pretty simple, especially since we are relying on the default configurations.
-We could have specified a custom `spec.goals` list to optimize how the cluster is balanced.
-For example, we could have added a single value `spec.goals` list with
+The purpose of creating a `KafkaRebalance` resource is for creating **optimization proposals** and executing parition rebalances based on that **optimization proposals**.
 
-- DiskCapacityGoal
+An **optimization proposal** is a summary of proposed parition movements that would produce a more balanced Kafka cluster.
 
-which would cause Cruise Control to balance the cluster based on broker disk capacity, ignoring other factors like:
+Here we pass Cruise Control a list of what priorities or goals to focus on when calculating an *optimization proposal*
 
-- CPU load
-- Network load
-- ReplicaCapacity
-- etc
+For example the:
 
-The defult settings cover all of these factors anyway
+- CPU Capacity Goal
+
+ensures the the generated proposal would keep CPU utilization for any broker in our cluster under a given threshold.
 
 ```
 7-rebalance-resource.txt
 ```
 
-This `KafkaRebalance` resource will be read by the Cluster Operator to form a rebalance proposal request to the Cruise Control API.
+Now that the `KafkaRebalance` resource has been created, it will be used by the Cluster Operator to request an *optimization proposal* from the Cruise Control.
 
-After receiving the optimization proposal from Cruise Control, the Cluster Operator will subsequently update the `KafkaRebalance` resource with the details of this partition rebalance plan for review.
+Once received, the Cluster Operator will subsequently update the `KafkaRebalance` resource with the details of the *optimization proposal* for review.
 
-We can look at the rebalance plan like this
+We can look at the details of our optimization proposal like this
 ```
 kubectl describe kafkarebalance my-rebalance
 ```
+
 ```
 Status:
   Conditions:
@@ -584,7 +591,9 @@ Status:
 Events:                                   <none>
 ```
 
-If all looks good, we can execute the rebalance based on that proposal, by annotating the `KafkaRebalance` resource like this:
+**WAIT** Let's wait for the optimization proposal to be ready.
+
+Once the proposal is ready and looks good, we can execute the rebalance based on that proposal, by annotating the `KafkaRebalance` resource like this:
 
 ```
 kubectl annotate kafkarebalance my-rebalance strimzi.io/rebalance=approve
@@ -592,15 +601,15 @@ kubectl annotate kafkarebalance my-rebalance strimzi.io/rebalance=approve
 
 Now Cruise Control will execute a partition rebalance amongst the brokers
 
-While we wait for the rebalance to complete let's go through some of the status fields of the `KafkaRebalance` resource.
-
-We can get the status of the rebalance by looking at the resource:
+We can get the status of the rebalance by looking at the resource like this:
 
 ```
 kubectl describe kafkarebalance my-rebalance
 ```
 
-Once complete, we can look and see the partitions and replicas spread amongst all of the brokers.
+**WAIT** Let's wait for the rebalance to complete.
+
+Once complete, we can look and see the partitions spread amongst all of the brokers.
 
 ```
 kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server my-cluster-kafka-bootstrap:9092
@@ -613,3 +622,5 @@ Topic: __consumer_offsets	Partition: 3	Leader: 1	Replicas: 1	Isr: 1
 Topic: __consumer_offsets	Partition: 4	Leader: 2	Replicas: 2	Isr: 2
 Topic: __consumer_offsets	Partition: 5	Leader: 2	Replicas: 2	Isr: 2
 ```
+
+That is the end of the demo, as you can see, using Strimzi Operators and custom resources we can balance our Kafka clusters in Kubernetes.
