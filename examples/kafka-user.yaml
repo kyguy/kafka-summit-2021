@@ -25,7 +25,7 @@ spec:
         host: "*"
       - resource:
           type: group
-          name: my-group
+          name: java-kafka-consumer
           patternType: literal
         operation: Read
         host: "*"
@@ -48,3 +48,7 @@ spec:
           patternType: literal
         operation: Describe
         host: "*"
+  quotas:
+    producerByteRate: 1048576
+    consumerByteRate: 2097152
+    requestPercentage: 55

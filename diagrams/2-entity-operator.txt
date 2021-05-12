@@ -1,19 +1,15 @@
+                                            Kafka Cluster
 
-                           *  *
-                        *        *
-                       *  Entity  *
-                       * Operator *         Kafka Cluster
-                        *        *
-                           *  *                 *  *
-                            ^                *        *
-                            |               *  Kafka   *
-+----------+                |               *   Pod    *
-|          |               *  *              *        *
-|  Kafka   |            *        *              *  *
-| Resource | <------+  * Cluster  * ----->
-|          | +------>  * Operator *             *  *
-|          |            *        *           *        *
-+----------+               *  *             * Zookeeper*
+                                                *  *
+                                             *        *
+                                            *  Kafka   *
++----------+                                *   Pod    *
+|          |               *  *              *        *      *  *
+|  Kafka   |            *        *              *  *      *        *
+| Resource | <------+  * Cluster  * ----->               *  Entity  *
+|          | +------>  * Operator *             *  *     * Operator *
+|          |            *        *           *        *   *        *
++----------+               *  *             * Zookeeper*     *  *
                                             *   Pod    *
                                              *        *
                                                 *  *

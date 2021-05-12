@@ -3,6 +3,9 @@ kind: Kafka
 metadata:
   name: my-cluster
 spec:
+  entityOperator: 
+    topicOperator: {}
+    userOperator: {}
   kafka:
     version: 2.7.0
     replicas: 1
@@ -30,8 +33,6 @@ spec:
         type: persistent-claim
         size: 10Gi
         deleteClaim: false
-    authorization:
-      type: simple
   zookeeper:
     replicas: 1
     storage:
