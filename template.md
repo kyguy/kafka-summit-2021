@@ -7,8 +7,8 @@ Demo for using Strimzi to manage a Kafka cluster on Kubernetes.
 - Namespace context set to `myproject`
 
 ## Timing
-- Strimzi Basics ~11mins 
-- Cruise Control ~5mins
+- Strimzi Basics ~13mins 
+- Cruise Control ~6mins
 
 # Demo: Strimzi Basics
 
@@ -706,7 +706,7 @@ spec:
     - LeaderBytesInDistributionGoal    
 ```
 
-The purpose of creating a `KafkaRebalance` resource is for creating **optimization proposals** and executing parition rebalances based on that **optimization proposals**.
+The purpose of creating a `KafkaRebalance` resource is for creating **optimization proposals** and executing partition rebalances based on that **optimization proposals**.
 
 An **optimization proposal** is a summary of proposed parition movements that would produce a more balanced Kafka cluster.
 
