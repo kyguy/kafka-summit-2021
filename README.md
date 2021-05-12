@@ -97,6 +97,8 @@ spec:
         port: 9093
         type: internal
         tls: true
+        authentication:
+          type: tls
     config:
       offsets.topic.replication.factor: 1
       transaction.state.log.replication.factor: 1
@@ -110,6 +112,8 @@ spec:
         type: persistent-claim
         size: 1Gi
         deleteClaim: false
+    authorization:
+      type: simple
   zookeeper:
     replicas: 1
     storage:
@@ -120,10 +124,18 @@ spec:
 
 We define a Kafka cluster that 
 - Has the name "my-cluster"
-- Runs Apache Kafka broker version 2.7.0
-- Has one broker instance
-- Has one zookeeper instance
+- Runs Apache Kafka broker version 2.7.0, note that we could have specified any other Strimzi supported Kafka versions as well
+- Has one Kafka broker instance
+- Has one Zookeeper instance
 - Has the following Apache Kafka broker configuration.
+- Exposes secure and insecure bootstrap addresses for accessing the cluster, we could have also specifed a external listener here for reaching the cluster outside Kuberentes, via nodeport, loadbalancer, or ingress.
+- Uses persistent JBOD storage
+- Enforces user authorization
+
+The customizations listed here are NOT exhaustive, we can also add other configurations for things like 
+- metrics
+- security
+- and other components!
 
 ```
                                             Kafka Cluster
@@ -183,22 +195,18 @@ Notice the Entity Operator comprises of two operators:
 - An operator for managing Kafka Users
 
 ```
+                                            Kafka Cluster
 
-                           *  *
-                        *        *
-                       *  Entity  *
-                       * Operator *         Kafka Cluster
-                        *        *
-                           *  *                 *  *
-                            ^                *        *
-                            |               *  Kafka   *
-+----------+                |               *   Pod    *
-|          |               *  *              *        *
-|  Kafka   |            *        *              *  *
-| Resource | <------+  * Cluster  * ----->
-|          | +------>  * Operator *             *  *
-|          |            *        *           *        *
-+----------+               *  *             * Zookeeper*
+                                                *  *
+                                             *        *
+                                            *  Kafka   *
++----------+                                *   Pod    *
+|          |               *  *              *        *      *  *
+|  Kafka   |            *        *              *  *      *        *
+| Resource | <------+  * Cluster  * ----->               *  Entity  *
+|          | +------>  * Operator *             *  *     * Operator *
+|          |            *        *           *        *   *        *
++----------+               *  *             * Zookeeper*     *  *
                                             *   Pod    *
                                              *        *
                                                 *  *
@@ -240,25 +248,26 @@ As we can see in the description in the `KafkaTopic` resource, we describe a Kaf
 - Has the following Apache Kafka topic configurations
 
 ```
-+----------+
-|          |               *  *
-|  Topic   |            *        *
-| Resource | <------+  *  Topic   *
-|          | +------>  * Operator * --+     Kafka Cluster
-|          |            *        *    |
-+----------+               *  *       |         *  *
-                            ^         |      *        *
-                            |         +-->  *  Kafka   *
-+----------+                |               *   Pod    *
-|          |               *  *              *        *
-|  Kafka   |            *        *              *  *
-| Resource | <------+  * Cluster  * ----->
-|          | +------>  * Operator *             *  *
-|          |            *        *           *        *
-+----------+               *  *             * Zookeeper*
-                                            *   Pod    *
-                                             *        *
-                                                *  *
+                                              Kafka Cluster
+
+                                                  *  *
+                                               *        *
+                                              *  Kafka   * <-----+
+  +----------+                                *   Pod    *       |
+  |          |               *  *              *        *      *  *
+  |  Kafka   |            *        *              *  *      *        *
+  | Resource | <------+  * Cluster  * ----->               *  Topic   *
+  |          | +------>  * Operator *             *  *     * Operator *
+  |          |            *        *           *        *   *        *
+  +----------+               *  *             * Zookeeper*     *  *
+  +----------+                                *   Pod    *      ^ |
+  |          |                                 *        *       | |
+  |  Topic   |                                    *  *          | |
+  | Resource |                                                  | |
+  |          | +------------------------------------------------+ |
+  |          | <--------------------------------------------------+
+  +----------+
+
 
 Kubernetes Land
 ```
@@ -317,7 +326,7 @@ spec:
         host: "*"
       - resource:
           type: group
-          name: my-group
+          name: java-kafka-consumer
           patternType: literal
         operation: Read
         host: "*"
@@ -340,31 +349,38 @@ spec:
           patternType: literal
         operation: Describe
         host: "*"
+  quotas:
+    producerByteRate: 1048576
+    consumerByteRate: 2097152
+    requestPercentage: 55
 ```
-Here in our KafkaUser resource, we focus on two things:
+Here in our KafkaUser resource, we focus on a few things:
 - **Authentication**:  So our Kafka user will be recognized by the Kafka cluster, here we use TLS client authentication.
 - **Authorization**: So our Kafka user will have privledges to interact with topics, here we defined Access Control Lists (ACLs) for reading and writing to our topic.
+- **User Quotas**: So we can limit how much our user can can read and write to brokers, here we limit the byte rate of producing and consuming to and from a broker, as well as the CPU utilization limit as a percentage of time used by the client group.
+
 
 ```
-+----------+
-|          |               *  *
-|   User   |            *        *
-| Resource | <------+ *   User    *
-|          | +------> *  Operator *---+     Kafka Cluster
-|          |            *        *    |
-+----------+               *  *       |         *  *
-                            ^         |      *        *
-                            |         +-->  *  Kafka   *
-+----------+                |               *   Pod    *
-|          |               *  *              *        *
-|  Kafka   |            *        *              *  *
-| Resource | <------+  * Cluster  * ----->
-|          | +------>  * Operator *             *  *
-|          |            *        *           *        *
-+----------+               *  *             * Zookeeper*
-                                            *   Pod    *
-                                             *        *
-                                                *  *
+                                              Kafka Cluster
+
+                                                  *  *
+                                               *        *
+                                              *  Kafka   * <-----+
+  +----------+                                *   Pod    *       |
+  |          |               *  *              *        *      *  *
+  |  Kafka   |            *        *              *  *      *        *
+  | Resource | <------+  * Cluster  * ----->               *   User   *
+  |          | +------>  * Operator *             *  *     * Operator *
+  |          |            *        *           *        *   *        *
+  +----------+               *  *             * Zookeeper*     *  *
+  +----------+                                *   Pod    *      ^ |
+  |          |                                 *        *       | |
+  |   User   |                                    *  *          | |
+  | Resource |                                                  | |
+  |          | +------------------------------------------------+ |
+  |          | <--------------------------------------------------+
+  +----------+
+
 
 Kubernetes Land
 ```
@@ -470,20 +486,20 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: unknown-kafka-consumer
-  name: unknown-kafka-consumer
+    app: unauthenticated-kafka-consumer
+  name: unauthenticated-kafka-consumer
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: unknown-kafka-consumer
+      app: unauthenticated-kafka-consumer
   template:
     metadata:
       labels:
-        app: unknown-kafka-consumer
+        app: unauthenticated-kafka-consumer
     spec:
       containers:
-      - name: unknown-kafka-consumer
+      - name: unauthenticated-kafka-consumer
         image: quay.io/strimzi-examples/java-kafka-consumer:latest
         env:
           # Notice how there are no secrets here linking our consumer with our Kafka user
@@ -501,7 +517,7 @@ spec:
 we see that it will not be able to read any messages
 
 ```
-kubectl logs unknown-kafka-consumer -f
+kubectl logs unauthenticated-kafka-consumer -f
 ```
 
 That covers the Strimzi basics, as you have seen, using Strimzi Operators and Custom Resources we can easily deploy and manage:
@@ -673,6 +689,199 @@ kubectl get pods
 ```
 
 Now we need a way of interacting with the Cruise Control.
+
+Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI, through `KafkaRebalance` resources.
+
+We can create a `KafkaRebalance` resource like this:
+```
+kubectl apply -f examples/kafka-rebalance.yaml
+```
+This will serve as our medium to Cruise Control for preforming a partition rebalance.
+
+Let's take a closer look at the `KafkaRebalance` resource:
+```
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaRebalance
+metadata:
+  name: my-rebalance
+  labels:
+    strimzi.io/cluster: my-cluster
+spec:
+  goals:
+    - RackAwareGoal
+    - ReplicaCapacityGoal
+    - DiskCapacityGoal
+    - NetworkInboundCapacityGoal
+    - NetworkOutboundCapacityGoal
+    - CpuCapacityGoal
+    - ReplicaDistributionGoal
+    - DiskUsageDistributionGoal
+    - NetworkInboundUsageDistributionGoal
+    - NetworkOutboundUsageDistributionGoal
+    - TopicReplicaDistributionGoal
+    - LeaderReplicaDistributionGoal
+    - LeaderBytesInDistributionGoal    
+```
+
+The purpose of creating a `KafkaRebalance` resource is for creating **optimization proposals** and executing parition rebalances based on that **optimization proposals**.
+
+An **optimization proposal** is a summary of proposed parition movements that would produce a more balanced Kafka cluster.
+
+Here we pass Cruise Control a list of what priorities or goals to focus on when calculating an *optimization proposal*
+
+For example the:
+
+- CPU Capacity Goal
+
+ensures the the generated proposal would keep CPU utilization for any broker in our cluster under a given threshold.
+
+```
+                           *  *
+                        *        *
+                       *  Cruise  * -------------+------------+------------+
+                       *  Control *              |            |            |
+                        *        *               v            v            v
+                           *  *
+                            ^                   *  *         *  *          *  *
+                            |                *        *   *        *    *        *
++----------+                |               *  Kafka   * *  Kafka   *  *  Kafka   *
+|          |               *  *             *   Pod    * *   Pod    *  *   Pod    *
+|  Kafka   |            *        *           *        *   *        *    *        *
+| Resource | <------+  * Cluster  * ----->      *  *         *  *          *  *
+|          | +------>  * Operator *
+|          |            *        *              *  *         *  *          *  *
++----------+               *  *              *        *   *        *    *        *
+                            | ^             * Zookeeper* * Zookeeper*  * Zookeeper*
++----------+                | |             *   Pod    * *   Pod    *  *   Pod    *
+|          |                | |              *        *   *        *    *        *
+|Rebalance | <--------------+ |                 *  *         *  *          *  *
+| Resource | +----------------+
+|          |                                             Kafka Cluster
+|          |
++----------+
+
+
+Kubernetes Land
+```
+
+Now that the `KafkaRebalance` resource has been created, it will be used by the Cluster Operator to request an *optimization proposal* from the Cruise Control.
+
+Once received, the Cluster Operator will subsequently update the `KafkaRebalance` resource with the details of the *optimization proposal* for review.
+
+We can look at the details of our optimization proposal like this
+```
+kubectl describe kafkarebalance my-rebalance
+```
+
+```
+Status:
+  Conditions:
+    Last Transition Time:  2021-05-06T21:56:27.023127Z
+    Status:                True
+    Type:                  ProposalReady
+  Observed Generation:     1
+  Optimization Result:
+    Data To Move MB:  0
+    Excluded Brokers For Leadership:
+    Excluded Brokers For Replica Move:
+    Excluded Topics:
+    Intra Broker Data To Move MB:         0
+    Monitored Partitions Percentage:      100
+    Num Intra Broker Replica Movements:   0
+    Num Leader Movements:                 8
+    Num Replica Movements:                90
+    On Demand Balancedness Score After:   86.5211909515508
+    On Demand Balancedness Score Before:  78.70730590478658
+    Provision Recommendation:             
+    Provision Status:                     RIGHT_SIZED
+    Recent Windows:                       1
+  Session Id:                             50c4ee47-aae3-4ca4-ac49-fffdcecf5834
+Events:                                   <none>
+```
+
+**WAIT** Let's wait for the optimization proposal to be ready.
+
+Once the proposal is ready and looks good, we can execute the rebalance based on that proposal, by annotating the `KafkaRebalance` resource like this:
+
+```
+kubectl annotate kafkarebalance my-rebalance strimzi.io/rebalance=approve
+```
+
+Now Cruise Control will execute a partition rebalance amongst the brokers
+
+We can get the status of the rebalance by looking at the resource like this:
+
+```
+kubectl describe kafkarebalance my-rebalance
+```
+
+**WAIT** Let's wait for the rebalance to complete.
+
+Once complete, we can look and see the partitions spread amongst all of the brokers.
+
+```
+kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server my-cluster-kafka-bootstrap:9092
+```
+```
+Topic: __consumer_offsets	Partition: 0	Leader: 0	Replicas: 0	Isr: 0
+Topic: __consumer_offsets	Partition: 1	Leader: 1	Replicas: 1	Isr: 1
+Topic: __consumer_offsets	Partition: 2	Leader: 1	Replicas: 1	Isr: 1
+Topic: __consumer_offsets	Partition: 3	Leader: 1	Replicas: 1	Isr: 1
+Topic: __consumer_offsets	Partition: 4	Leader: 2	Replicas: 2	Isr: 2
+Topic: __consumer_offsets	Partition: 5	Leader: 2	Replicas: 2	Isr: 2
+```
+
+That is the end of the demo, as you can see, using Strimzi Operators and custom resources we can balance our Kafka clusters in Kubernetes.
+
+# Demo: Cruise Control (Abridged)
+
+In this demo, we will show how to balance your Kafka cluster using Strimzi Cruise Control integration.
+
+```
+                           *  *
+                        *        *
+                       *  Cruise  *
+                       *  Control *
+                        *        *
+                           *  *
+                            ^                   *  *         *  *          *  *
+                            |                *        *   *        *    *        *
++----------+                |               *  Kafka   * *  Kafka   *  *  Kafka   *
+|          |               *  *             *   Pod    * *   Pod    *  *   Pod    *
+|  Kafka   |            *        *           *        *   *        *    *        *
+| Resource | <------+  * Cluster  * ----->      *  *         *  *          *  *
+|          | +------>  * Operator *
+|          |            *        *              *  *         *  *          *  *
++----------+               *  *              *        *   *        *    *        *
+                                            * Zookeeper* * Zookeeper*  * Zookeeper*
+                                            *   Pod    * *   Pod    *  *   Pod    *
+                                             *        *   *        *    *        *
+                                                *  *         *  *          *  *
+
+Kubernetes Land                                          Kafka Cluster
+```
+
+## Cruise Control
+
+To save time, I have already scaled our cluster to 3 Kafka brokers and deployed Cruise Control by editing the `Kafka` resource like this:
+
+```
+kubectl edit kafka my-cluster
+```
+
+These changes we read by the cluster operator and then applyed to our cluster.
+
+The problem is that even after scaling, we can see all of our topics' partitions are still piled up on one broker here:
+
+```
+kubectl exec -ti my-cluster-kafka-0 -- ./bin/kafka-topics.sh --describe --bootstrap-server localhost:9092
+```
+
+We need to redistribute these partitions to balance our cluster out.
+
+Cruise Control is an opensource project for balancing workloads across Kafka brokers.
+
+Since Cruise Control has already been deployed, all we need now is a way of interacting with the Cruise Control.
 
 Luckily, just like for all other Kafka components, Strimzi provides a way of interacting with the Cruise Control API using the Kubernetes CLI, through `KafkaRebalance` resources.
 
